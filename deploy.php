@@ -13,10 +13,18 @@ set('keep_releases', 3);
 set('shared_files', ['config.php']);
 set('shared_dirs', ['backups']);
 
+$env = is_file(__DIR__ . '/.env') ? parse_ini_file(__DIR__ . '/.env') : [];
+foreach (['DEPLOY_HOST', 'DEPLOY_USER'] as $key) {
+    if (empty($env[$key])) {
+        throw new \RuntimeException("Set $key in .env");
+    }
+}
+
 host('vps')
-    ->setHostname('your.vps.ip')
-    ->setRemoteUser('deploy')
-    ->setDeployPath('~/db-backup');
+    ->setHostname($env['DEPLOY_HOST'])
+    ->setRemoteUser($env['DEPLOY_USER'])
+    ->setPort((int) ($env['DEPLOY_PORT'] ?? 22))
+    ->setDeployPath($env['DEPLOY_PATH'] ?? '~/db-backup');
 
 add('crontab:jobs', [
     '30 2 * * * {{bin/php}} {{current_path}}/backup.php >> {{deploy_path}}/shared/backup.log 2>&1',
