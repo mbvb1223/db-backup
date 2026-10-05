@@ -47,10 +47,7 @@ foreach ($config['connections'] as $connName => $conn) {
         try {
             $file = backup($conn, $db, $rules, "$backupDir/$connName/$db", $mysqldump, $options);
             $ok++;
-            logLine(sprintf(
-                'OK   %s/%s -> %s (%s, %.1fs)',
-                $connName, $db, $file, formatBytes(filesize($file)), microtime(true) - $started
-            ));
+            logLine(sprintf('OK   %s/%s -> %s (%s, %.1fs)', $connName, $db, $file, formatBytes(filesize($file)), microtime(true) - $started));
             if ($keepDays > 0) {
                 prune(dirname($file), $keepDays);
             }
