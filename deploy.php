@@ -6,7 +6,7 @@ require 'recipe/common.php';
 
 set('application', 'db-backup');
 set('repository', 'git@github.com:mbvb1223/db-backup.git');
-set('keep_releases', 3);
+set('keep_releases', 2);
 
 // config.php is gitignored, it lives in shared/ and is symlinked into each release
 set('shared_files', ['config.php']);
