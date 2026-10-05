@@ -56,3 +56,16 @@ gunzip < backups/main/project_a/project_a_20261005_023000.sql.gz | mysql -u root
 CREATE USER 'backup'@'localhost' IDENTIFIED BY '...';
 GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON *.* TO 'backup'@'localhost';
 ```
+
+## Deploy (Deployer)
+
+Set `setHostname` / `setRemoteUser` in `deploy.php`, and put the production values in your local `config.php`. Then:
+
+```sh
+composer install
+vendor/bin/dep config:upload   # first time, or whenever config.php changes
+vendor/bin/dep deploy          # clones repo, links shared/config.php + shared/backups, installs the cron
+```
+
+On the server: code in `~/db-backup/current`, backups in `~/db-backup/shared/backups`, log in `~/db-backup/shared/backup.log`.
+Edit the schedule in `crontab:jobs` (`deploy.php`) and redeploy.
