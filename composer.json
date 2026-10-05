@@ -1,4 +1,5 @@
 {
+    "license": "MIT",
     "require-dev": {
         "deployer/deployer": "^8.0"
     }
