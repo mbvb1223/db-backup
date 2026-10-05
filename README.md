@@ -34,14 +34,14 @@ Exit code is non-zero if any database failed.
 
 ```
 # every day at 02:30
-30 2 * * * /usr/bin/php /path/to/db-backup/backup.php >> /var/log/db-backup.log 2>&1
+30 2 * * * /usr/bin/php /var/www/db-backup/current/backup.php >> /var/www/db-backup/shared/backup.log 2>&1
 ```
 
 Different times per project – one line each:
 
 ```
-30 2 * * * /usr/bin/php /path/to/db-backup/backup.php project_a >> /var/log/db-backup.log 2>&1
-0 */6 * * * /usr/bin/php /path/to/db-backup/backup.php project_b >> /var/log/db-backup.log 2>&1
+30 2 * * * /usr/bin/php /var/www/db-backup/current/backup.php project_a >> /var/www/db-backup/shared/backup.log 2>&1
+0 */6 * * * /usr/bin/php /var/www/db-backup/current/backup.php project_b >> /var/www/db-backup/shared/backup.log 2>&1
 ```
 
 ## Restore
@@ -59,13 +59,21 @@ GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON *.* TO 'backup'@'localho
 
 ## Deploy (Deployer)
 
-Set `setHostname` / `setRemoteUser` in `deploy.php`, and put the production values in your local `config.php`. Then:
+Create `.env` (gitignored) with `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT` (default 22), `DEPLOY_IDENTITY_FILE` (default `~/.ssh/id_ed25519`). Then:
 
 ```sh
 composer install
-vendor/bin/dep config:upload   # first time, or whenever config.php changes
-vendor/bin/dep deploy          # clones repo, links shared/config.php + shared/backups, installs the cron
+vendor/bin/dep deploy          # clones repo, links shared/config.php + shared/backups
 ```
 
-On the server: code in `~/db-backup/current`, backups in `~/db-backup/shared/backups`, log in `~/db-backup/shared/backup.log`.
-Edit the schedule in `crontab:jobs` (`deploy.php`) and redeploy.
+First time only, on the server:
+
+```sh
+cp /var/www/db-backup/current/config.example.php /var/www/db-backup/shared/config.php
+chmod 600 /var/www/db-backup/shared/config.php
+nano /var/www/db-backup/shared/config.php
+php /var/www/db-backup/current/backup.php   # test run
+crontab -e                                  # add the line from "Schedule (cron)"
+```
+
+Cron points at `current/`, so later deploys need no cron changes.
