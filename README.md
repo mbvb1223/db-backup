@@ -2,7 +2,7 @@
 
 Backs up MySQL/MariaDB databases with `mysqldump` into gzipped files, with retention. Several projects can share one connection; per database you choose all tables, only some, or all except some.
 
-Requirements on the server: PHP 7.4+ (CLI, `zlib`), `mysqldump`.
+Requirements on the server: PHP 8.2+ (CLI, `zlib`, `simplexml`, `curl`), `mysqldump`. Uploads use the [AWS SDK for PHP](https://github.com/aws/aws-sdk-php), installed by Composer (trimmed to S3 only).
 
 ## Config
 
@@ -39,6 +39,22 @@ CREATE USER 'backup'@'localhost' IDENTIFIED BY '...';
 GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON *.* TO 'backup'@'localhost';
 ```
 
+## Upload (S3 / R2)
+
+R2 is S3-compatible, so both use the same `remotes` entry. Each new dump is also uploaded to every remote as `<bucket>/<prefix>/<connection>/<database>/<file>` (multipart above 16 MB). Every remote is tried; a failure makes the run exit non-zero and the local dump is kept. After a successful upload, `*.sql.gz` older than `remote_keep_days` are deleted from that remote.
+
+Keys go in `.env` next to `config.php` (gitignored, template in `.env.example`, `shared/.env` on the server). It's loaded before `config.php`, which reads it with `getenv()`:
+
+```
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+```
+
+| | `endpoint` | `region` | Keys |
+|---|---|---|---|
+| Cloudflare R2 | `https://ACCOUNT_ID.r2.cloudflarestorage.com` | `auto` | R2 → *Manage API tokens* → **Object Read & Write** on the bucket |
+| AWS S3 | leave out | bucket's region | IAM user with `s3:PutObject`, `s3:ListBucket`, `s3:DeleteObject` on the bucket |
+
 ## Run
 
 ```sh
@@ -51,32 +67,28 @@ Exit code is non-zero if any database failed. A lock prevents overlapping runs.
 
 ## Deploy (Deployer)
 
-Local `.env` (gitignored):
-
-```
-DEPLOY_HOST=1.2.3.4
-DEPLOY_USER=root
-DEPLOY_PORT=22                            # optional, default 22
-DEPLOY_IDENTITY_FILE=~/.ssh/id_ed25519    # optional
-```
-
 ```sh
+cp .env.example .env   # set DEPLOY_HOST, DEPLOY_USER
 composer install
 vendor/bin/dep deploy
 ```
+
+Each deploy runs `composer install --no-dev` on the server (Deployer installs Composer into `.dep/` if missing).
 
 Deploys `main` to `/var/www/db-backup`:
 
 - `current/` – the code
 - `shared/config.php` – config, kept across deploys
+- `shared/.env` – upload keys, kept across deploys (copied from `.env.example` on first deploy)
 - `shared/backups/` – dumps, kept across deploys
 
 ### First time on the server
 
 ```sh
 cp /var/www/db-backup/current/config.example.php /var/www/db-backup/shared/config.php
-chmod 600 /var/www/db-backup/shared/config.php
+chmod 600 /var/www/db-backup/shared/config.php /var/www/db-backup/shared/.env
 nano /var/www/db-backup/shared/config.php
+nano /var/www/db-backup/shared/.env         # only if uploading
 php /var/www/db-backup/current/backup.php   # test run
 ```
 
@@ -103,3 +115,9 @@ Different times per project – one line each:
 ```sh
 gunzip < /var/www/db-backup/shared/backups/main/project_a/project_a_20261005_023000.sql.gz | mysql -u root -p project_a
 ```
+
+From a remote: download the file from the R2/S3 dashboard, then `gunzip` it the same way.
+
+## License
+
+[MIT](LICENSE)

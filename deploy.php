@@ -8,8 +8,8 @@ set('application', 'db-backup');
 set('repository', 'git@github.com:mbvb1223/db-backup.git');
 set('keep_releases', 2);
 
-// config.php is gitignored, it lives in shared/ and is symlinked into each release
-set('shared_files', ['config.php']);
+// config.php and .env are gitignored, they live in shared/ and are symlinked into each release
+set('shared_files', ['config.php', '.env']);
 set('shared_dirs', ['backups']);
 
 $env = is_file(__DIR__ . '/.env') ? parse_ini_file(__DIR__ . '/.env') : [];
@@ -26,4 +26,6 @@ host($env['DEPLOY_HOST'])
     ->set('deploy_path', '/var/www/{{application}}')
     ->set('identity_file', $env['DEPLOY_IDENTITY_FILE'] ?? '~/.ssh/id_ed25519');
 
+// Runs `composer install --no-dev`; installs Composer into .dep/ if the server has none
+after('deploy:shared', 'deploy:vendors');
 after('deploy:failed', 'deploy:unlock');
