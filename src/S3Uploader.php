@@ -18,7 +18,7 @@ readonly class S3Uploader implements Uploader
     ) {
     }
 
-    public static function fromConfig(string $name, array $settings, int $keepDays): self
+    public static function fromConfig(string $name, array $settings): self
     {
         foreach (['bucket', 'key', 'secret'] as $key) {
             if (empty($settings[$key])) {
@@ -35,7 +35,7 @@ readonly class S3Uploader implements Uploader
             $options['endpoint'] = $settings['endpoint'];
         }
 
-        return new self(new S3Client($options), $settings['bucket'], $settings['prefix'] ?? '', $keepDays);
+        return new self(new S3Client($options), $settings['bucket'], $settings['prefix'] ?? '', $settings['keep_days'] ?? 0);
     }
 
     public function upload(string $file, string $dir): void

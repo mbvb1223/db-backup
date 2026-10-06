@@ -1,4 +1,3 @@
-#!/usr/bin/env php
 <?php
 
 declare(strict_types=1);
@@ -24,7 +23,7 @@ try {
 
     $uploaders = [];
     foreach ($config->uploaders as $name => $settings) {
-        $uploaders[$name] = UploaderFactory::create($name, $settings, $config->uploadKeepDays);
+        $uploaders[$name] = UploaderFactory::create($name, $settings);
     }
 
     $backup = new Backup($config, new MysqlDumper($config), $uploaders);

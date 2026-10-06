@@ -1,13 +1,16 @@
 <?php
 
 return [
-    'backup_dir' => __DIR__ . '/backups',
-
-    'keep_days' => 14,
-
     'mysqldump' => 'mysqldump',
 
+    'tmp_dir' => sys_get_temp_dir(),
+
     'uploaders' => [
+        'local' => [
+            'type' => 'local',
+            'dir' => __DIR__ . '/backups',
+            'keep_days' => 14,
+        ],
         'r2' => [
             'type' => 's3',
             'endpoint' => 'https://ACCOUNT_ID.r2.cloudflarestorage.com',
@@ -16,9 +19,9 @@ return [
             'key' => $_ENV['S3_ACCESS_KEY_ID'] ?? '',
             'secret' => $_ENV['S3_SECRET_ACCESS_KEY'] ?? '',
             'prefix' => 'db-backup',
+            'keep_days' => 30,
         ],
     ],
-    'upload_keep_days' => 30,
 
     'options' => [
         '--single-transaction',

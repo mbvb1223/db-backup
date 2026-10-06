@@ -18,22 +18,23 @@ readonly class Backup
 
     public function run(Database $db): bool
     {
-        $dir = "{$this->config->backupDir}/{$db->id()}";
+        $workDir = "{$this->config->tmpDir}/db-backup/{$db->id()}";
         $started = microtime(true);
         try {
-            $lock = $this->lock($dir);
-            $file = $this->dumper->dump($db, $dir);
+            $lock = $this->lock($workDir);
+            $this->deleteLeftoverDumps($workDir);
+            $file = $this->dumper->dump($db, $workDir);
         } catch (Throwable $e) {
             $this->log("FAIL {$db->id()}: {$e->getMessage()}");
             return false;
         }
-        $this->log(sprintf('OK   %s -> %s (%.1f MB, %.1fs)', $db->id(), $file, filesize($file) / 1048576, microtime(true) - $started));
+        $this->log(sprintf('DUMP %s (%.1f MB, %.1fs)', $db->id(), filesize($file) / 1048576, microtime(true) - $started));
 
-        if ($this->config->keepDays > 0) {
-            $this->deleteOldDumps($dir);
+        try {
+            return $this->upload($db, $file);
+        } finally {
+            unlink($file);
         }
-
-        return $this->upload($db, $file);
     }
 
     private function lock(string $dir)
@@ -47,6 +48,13 @@ readonly class Backup
         }
 
         return $lock;
+    }
+
+    private function deleteLeftoverDumps(string $dir): void
+    {
+        foreach (glob("$dir/*.sql.gz*") ?: [] as $file) {
+            unlink($file);
+        }
     }
 
     private function upload(Database $db, string $file): bool
@@ -64,17 +72,6 @@ readonly class Backup
         }
 
         return $allUploaded;
-    }
-
-    private function deleteOldDumps(string $dir): void
-    {
-        $cutoff = time() - $this->config->keepDays * 86400;
-        foreach (glob("$dir/*.sql.gz") ?: [] as $file) {
-            if (filemtime($file) < $cutoff) {
-                unlink($file);
-                $this->log("DEL  $file");
-            }
-        }
     }
 
     private function log(string $message): void

@@ -8,13 +8,14 @@ use RuntimeException;
 
 class UploaderFactory
 {
-    public static function create(string $name, array $settings, int $keepDays): Uploader
+    public static function create(string $name, array $settings): Uploader
     {
         $type = $settings['type'] ?? '';
 
         return match ($type) {
-            's3' => S3Uploader::fromConfig($name, $settings, $keepDays),
-            default => throw new RuntimeException("Uploader '$name': unknown type '$type' (supported: s3)"),
+            'local' => LocalUploader::fromConfig($name, $settings),
+            's3' => S3Uploader::fromConfig($name, $settings),
+            default => throw new RuntimeException("Uploader '$name': unknown type '$type' (supported: local, s3)"),
         };
     }
 }
