@@ -19,7 +19,7 @@ host($env['DEPLOY_HOST'])
     ->set('remote_user', $env['DEPLOY_USER'])
     ->set('port', (int) ($env['DEPLOY_PORT'] ?? 22))
     ->set('branch', 'main')
-    ->set('deploy_path', '/var/www/{{application}}')
+    ->set('deploy_path', $env['DEPLOY_PATH'] ?? '/opt/{{application}}')
     ->set('identity_file', $env['DEPLOY_IDENTITY_FILE'] ?? '~/.ssh/id_ed25519');
 
 after('deploy:shared', 'deploy:vendors');

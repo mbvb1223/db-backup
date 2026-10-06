@@ -113,7 +113,7 @@ vendor/bin/dep deploy
 
 Each deploy runs `composer install --no-dev` on the server (Deployer installs Composer into `.dep/` if missing).
 
-Deploys `main` to `/var/www/db-backup`:
+Deploys `main` to `/opt/db-backup` (set `DEPLOY_PATH` in `.env` to change it; keep it outside any web root):
 
 - `current/` – the code
 - `shared/config.php` – config, kept across deploys
@@ -122,10 +122,10 @@ Deploys `main` to `/var/www/db-backup`:
 ### First time on the server
 
 ```sh
-cp /var/www/db-backup/current/config.example.php /var/www/db-backup/shared/config.php
-chmod 600 /var/www/db-backup/shared/config.php
-nano /var/www/db-backup/shared/config.php
-php /var/www/db-backup/current/index.php    # test run
+cp /opt/db-backup/current/config.example.php /opt/db-backup/shared/config.php
+chmod 600 /opt/db-backup/shared/config.php
+nano /opt/db-backup/shared/config.php
+php /opt/db-backup/current/index.php    # test run
 ```
 
 Then add the cron (below). Cron points at `current/`, so later deploys need no changes on the server.
@@ -136,7 +136,7 @@ On the server, `crontab -e` (check the PHP path with `which php`):
 
 ```
 # every day at 02:30
-30 2 * * * /usr/bin/php /var/www/db-backup/current/index.php >> /var/www/db-backup/shared/backup.log 2>&1
+30 2 * * * /usr/bin/php /opt/db-backup/current/index.php >> /opt/db-backup/shared/backup.log 2>&1
 ```
 
 The script writes `backup.log` itself; the redirect only catches PHP crashes that happen before logging starts.
