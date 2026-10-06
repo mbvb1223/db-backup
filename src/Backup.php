@@ -4,31 +4,48 @@ declare(strict_types=1);
 
 namespace DbBackup;
 
-use RuntimeException;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\FlockStore;
 use Throwable;
 
 readonly class Backup
 {
+    private LockFactory $locks;
+
     public function __construct(
         private Config $config,
         private MysqlDumper $dumper,
         /** @var array<string, Uploader> */
         private array $uploaders,
     ) {
+        $this->locks = new LockFactory(new FlockStore());
     }
 
     public function run(Database $db): bool
     {
-        $dir = "{$this->config->backupDir}/{$db->id()}";
-        $started = microtime(true);
+        $lock = $this->locks->createLock("db-backup:{$db->id()}");
+        if (!$lock->acquire()) {
+            $this->log("FAIL {$db->id()}: previous backup is still running");
+            return false;
+        }
+
         try {
-            $lock = $this->lock($dir);
-            $this->deletePartialDumps($dir);
-            $file = $this->dumper->dump($db, $dir);
+            return $this->backup($db);
         } catch (Throwable $e) {
             $this->log("FAIL {$db->id()}: {$e->getMessage()}");
             return false;
+        } finally {
+            $lock->release();
         }
+    }
+
+    private function backup(Database $db): bool
+    {
+        $dir = "{$this->config->backupDir}/{$db->id()}";
+        $this->deletePartialDumps($dir);
+
+        $started = microtime(true);
+        $file = $this->dumper->dump($db, $dir);
         $this->log(sprintf('DUMP %s -> %s (%.1f MB, %.1fs)', $db->id(), $file, filesize($file) / 1048576, microtime(true) - $started));
 
         $allUploaded = $this->upload($db, $file);
@@ -41,19 +58,6 @@ readonly class Backup
         }
 
         return $allUploaded;
-    }
-
-    private function lock(string $dir)
-    {
-        if (!is_dir($dir) && !mkdir($dir, 0700, true)) {
-            throw new RuntimeException("cannot create $dir");
-        }
-        $lock = fopen("$dir/.lock", 'c');
-        if (!flock($lock, LOCK_EX | LOCK_NB)) {
-            throw new RuntimeException('previous backup is still running');
-        }
-
-        return $lock;
     }
 
     private function upload(Database $db, string $file): bool

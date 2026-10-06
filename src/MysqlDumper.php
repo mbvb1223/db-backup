@@ -14,6 +14,9 @@ readonly class MysqlDumper
 
     public function dump(Database $db, string $dir): string
     {
+        if (!is_dir($dir) && !mkdir($dir, 0700, true)) {
+            throw new RuntimeException("cannot create $dir");
+        }
         $file = "$dir/{$db->name}_" . date('Ymd_His') . '.sql.gz';
 
         $credentialsFile = $this->writeCredentialsFile($db->server);
