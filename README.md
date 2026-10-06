@@ -29,6 +29,8 @@ Requirements on the server: PHP 8.2+ (CLI, `zlib`, `simplexml`, `curl`), `mysqld
 - `options` – flags passed to `mysqldump`.
 - `backup_dir` – where dumps are written, default `backups/` next to `config.php`. Keep it outside any web root.
 - `keep_days` – local dumps older than this are deleted after each run. `0` deletes the new dump as soon as every uploader succeeded (if one fails, it stays until the next good run). Leave it out to keep local dumps forever.
+- `log_file` – every step is logged here (default `backup.log` next to `config.php`), and also printed when you run it by hand.
+- `slack_webhook` – optional, see [Slack](#slack).
 
 Output: `<backup_dir>/<connection>/<database>/<database>_YYYYmmdd_HHMMSS.sql.gz`
 
@@ -63,13 +65,27 @@ S3_ACCESS_KEY_ID=...
 S3_SECRET_ACCESS_KEY=...
 ```
 
+## Slack
+
+Each run posts a summary to Slack: green `Backup finished: 3 ok, 0 failed`, or red when something failed. Each error (failed dump, failed upload, config error) is also posted right away. The detailed steps stay in `log_file`. One message per day means the backup ran; no message means it did not.
+
+1. <https://api.slack.com/apps> → **Create New App** → *From scratch*, pick your workspace.
+2. **Incoming Webhooks** → turn on → **Add New Webhook to Workspace** → pick a channel.
+3. Copy the webhook URL into `.env` (`shared/.env` on the server):
+
+```
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+```
+
+If Slack is unreachable, the backup still runs; only the message is lost.
+
 ## Run
 
 ```sh
 php index.php   # backs up every database in config.php
 ```
 
-Exit code is non-zero if any database failed. A per-database lock skips a database whose previous backup is still running.
+Exit code is non-zero if any database failed. A database whose previous backup is still running is skipped (and reported as an error).
 
 ## Deploy (Deployer)
 
@@ -108,6 +124,8 @@ On the server, `crontab -e` (check the PHP path with `which php`):
 # every day at 02:30
 30 2 * * * /usr/bin/php /var/www/db-backup/current/index.php >> /var/www/db-backup/shared/backup.log 2>&1
 ```
+
+The script writes `backup.log` itself; the redirect only catches PHP crashes that happen before logging starts.
 
 ## Restore
 

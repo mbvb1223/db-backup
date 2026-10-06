@@ -6,6 +6,9 @@ return [
     'backup_dir' => __DIR__ . '/backups',
     'keep_days' => 14,
 
+    'log_file' => __DIR__ . '/backup.log',
+    'slack_webhook' => $_ENV['SLACK_WEBHOOK_URL'] ?? '',
+
     'mysqldump' => 'mysqldump',
 
     'uploaders' => [

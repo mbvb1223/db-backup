@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DbBackup;
 
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\Store\FlockStore;
 use Throwable;
@@ -17,6 +18,7 @@ readonly class Backup
         private MysqlDumper $dumper,
         /** @var array<string, Uploader> */
         private array $uploaders,
+        private LoggerInterface $logger,
     ) {
         $this->locks = new LockFactory(new FlockStore());
     }
@@ -25,14 +27,14 @@ readonly class Backup
     {
         $lock = $this->locks->createLock("db-backup:{$db->id()}");
         if (!$lock->acquire()) {
-            $this->log("FAIL {$db->id()}: previous backup is still running");
+            $this->logger->error("{$db->id()}: skipped, previous backup is still running");
             return false;
         }
 
         try {
             return $this->backup($db);
         } catch (Throwable $e) {
-            $this->log("FAIL {$db->id()}: {$e->getMessage()}");
+            $this->logger->error("{$db->id()}: backup failed: {$e->getMessage()}");
             return false;
         } finally {
             $lock->release();
@@ -46,7 +48,7 @@ readonly class Backup
 
         $started = microtime(true);
         $file = $this->dumper->dump($db, $dir);
-        $this->log(sprintf('DUMP %s -> %s (%.1f MB, %.1fs)', $db->id(), $file, filesize($file) / 1048576, microtime(true) - $started));
+        $this->logger->info(sprintf('%s: dumped to %s (%.1f MB, %.1fs)', $db->id(), $file, filesize($file) / 1048576, microtime(true) - $started));
 
         $allUploaded = $this->upload($db, $file);
 
@@ -67,10 +69,10 @@ readonly class Backup
             $started = microtime(true);
             try {
                 $uploader->upload($file, $db->id());
-                $this->log(sprintf('UP   %s -> %s (%.1fs)', $db->id(), $name, microtime(true) - $started));
+                $this->logger->info(sprintf('%s: uploaded to %s (%.1fs)', $db->id(), $name, microtime(true) - $started));
             } catch (Throwable $e) {
                 $allUploaded = false;
-                $this->log("FAIL {$db->id()} -> $name: {$e->getMessage()}");
+                $this->logger->error("{$db->id()}: upload to $name failed: {$e->getMessage()}");
             }
         }
 
@@ -97,11 +99,6 @@ readonly class Backup
     private function delete(string $file): void
     {
         unlink($file);
-        $this->log("DEL  $file");
-    }
-
-    private function log(string $message): void
-    {
-        echo '[' . date('Y-m-d H:i:s') . '] ' . str_replace("\n", ' ', $message) . "\n";
+        $this->logger->info("deleted $file");
     }
 }

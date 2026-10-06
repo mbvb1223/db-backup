@@ -16,6 +16,8 @@ readonly class Config
         public array $mysqldumpOptions,
         public array $uploaders,
         public array $databases,
+        public string $logFile,
+        public string $slackWebhook,
     ) {
     }
 
@@ -24,7 +26,8 @@ readonly class Config
         if (!is_file($file)) {
             throw new RuntimeException("Config not found: $file (copy config.example.php to config.php)");
         }
-        Dotenv::createImmutable(dirname($file))->safeLoad();
+        $dir = dirname(realpath($file));
+        Dotenv::createImmutable($dir)->safeLoad();
         $config = require $file;
 
         $keepDays = $config['keep_days'] ?? null;
@@ -33,12 +36,14 @@ readonly class Config
         }
 
         return new self(
-            backupDir: rtrim($config['backup_dir'] ?? dirname($file) . '/backups', '/'),
+            backupDir: rtrim($config['backup_dir'] ?? "$dir/backups", '/'),
             keepDays: $keepDays,
             mysqldump: $config['mysqldump'] ?? 'mysqldump',
             mysqldumpOptions: $config['options'] ?? [],
             uploaders: $config['uploaders'] ?? [],
             databases: self::databases($config['connections']),
+            logFile: $config['log_file'] ?? "$dir/backup.log",
+            slackWebhook: $config['slack_webhook'] ?? '',
         );
     }
 
