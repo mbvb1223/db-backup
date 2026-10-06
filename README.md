@@ -49,7 +49,7 @@ Each dump is uploaded by every entry in `uploaders` (leave it empty for local on
 
 To keep nothing on the server, set the top-level `keep_days` to `0`.
 
-R2 is S3-compatible, so it uses `'type' => 's3'`:
+R2 is S3-compatible, so it uses `'type' => S3Uploader::TYPE` (`'s3'`):
 
 | | `endpoint` | `region` | Keys |
 |---|---|---|---|
