@@ -11,16 +11,16 @@ set('keep_releases', 2);
 set('shared_files', ['config.php', '.env']);
 set('shared_dirs', ['backups']);
 
-$dotenv = \Dotenv\Dotenv::createImmutable(__DIR__);
-$dotenv->safeLoad();
+$dotenv = \Dotenv\Dotenv::createArrayBacked(__DIR__);
+$env = $dotenv->safeLoad();
 $dotenv->required(['DEPLOY_HOST', 'DEPLOY_USER'])->notEmpty();
 
-host($_ENV['DEPLOY_HOST'])
-    ->set('remote_user', $_ENV['DEPLOY_USER'])
-    ->set('port', (int) ($_ENV['DEPLOY_PORT'] ?? 22))
+host($env['DEPLOY_HOST'])
+    ->set('remote_user', $env['DEPLOY_USER'])
+    ->set('port', (int) ($env['DEPLOY_PORT'] ?? 22))
     ->set('branch', 'main')
     ->set('deploy_path', '/var/www/{{application}}')
-    ->set('identity_file', $_ENV['DEPLOY_IDENTITY_FILE'] ?? '~/.ssh/id_ed25519');
+    ->set('identity_file', $env['DEPLOY_IDENTITY_FILE'] ?? '~/.ssh/id_ed25519');
 
 after('deploy:shared', 'deploy:vendors');
 after('deploy:failed', 'deploy:unlock');
