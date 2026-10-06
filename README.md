@@ -32,7 +32,7 @@ return [
     'uploaders' => [...],                            // where dumps go, see Uploaders
     'log' => [                                      // log file and Slack
         'file' => __DIR__ . '/backup.log',
-        'slack_webhook' => $_ENV['SLACK_WEBHOOK_URL'] ?? '',
+        'slack_webhook' => 'https://hooks.slack.com/services/...',
     ],
 ];
 ```
@@ -70,19 +70,12 @@ To keep nothing on the server, set `backup.keep_days` to `0`.
 
 R2 is S3-compatible, so it uses `'type' => S3Uploader::TYPE` (`'s3'`):
 
-| | `S3_ENDPOINT` | `region` | Keys |
+| | `endpoint` | `region` | `key` / `secret` |
 |---|---|---|---|
 | Cloudflare R2 | `https://ACCOUNT_ID.r2.cloudflarestorage.com` | `auto` | R2 → *Manage API tokens* → **Object Read & Write** on the bucket |
 | AWS S3 | leave empty | bucket's region | IAM user with `s3:PutObject`, `s3:ListBucket`, `s3:DeleteObject` on the bucket |
 
-Endpoint, bucket and keys go in `.env` next to `config.php` (gitignored, template in `.env.example`, `shared/.env` on the server). It's loaded before `config.php`, which reads it through `$_ENV`:
-
-```
-S3_ENDPOINT=https://ACCOUNT_ID.r2.cloudflarestorage.com
-S3_BUCKET=my-bucket
-S3_ACCESS_KEY_ID=...
-S3_SECRET_ACCESS_KEY=...
-```
+Set `endpoint`, `bucket`, `key` and `secret` directly in the uploader entry in `config.php`.
 
 ## Slack
 
@@ -90,10 +83,12 @@ Each run posts a summary to Slack: green `Backup finished: 3 ok, 0 failed`, or r
 
 1. <https://api.slack.com/apps> → **Create New App** → *From scratch*, pick your workspace.
 2. **Incoming Webhooks** → turn on → **Add New Webhook to Workspace** → pick a channel.
-3. Copy the webhook URL into `.env` (`shared/.env` on the server):
+3. Copy the webhook URL into `config.php` (`shared/config.php` on the server):
 
-```
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+```php
+'log' => [
+    'slack_webhook' => 'https://hooks.slack.com/services/...',
+],
 ```
 
 If Slack is unreachable, the backup still runs; only the message is lost.
@@ -109,7 +104,7 @@ Exit code is non-zero if any database failed. A database whose previous backup i
 ## Deploy (Deployer)
 
 ```sh
-cp .env.example .env   # set DEPLOY_HOST, DEPLOY_USER
+cp .env.example .env   # set DEPLOY_HOST, DEPLOY_USER (your machine only)
 composer install
 vendor/bin/dep deploy
 ```
@@ -120,16 +115,14 @@ Deploys `main` to `/var/www/db-backup`:
 
 - `current/` – the code
 - `shared/config.php` – config, kept across deploys
-- `shared/.env` – upload keys, kept across deploys (copied from `.env.example` on first deploy)
 - `shared/backups/` – local dumps, kept across deploys
 
 ### First time on the server
 
 ```sh
 cp /var/www/db-backup/current/config.example.php /var/www/db-backup/shared/config.php
-chmod 600 /var/www/db-backup/shared/config.php /var/www/db-backup/shared/.env
+chmod 600 /var/www/db-backup/shared/config.php
 nano /var/www/db-backup/shared/config.php
-nano /var/www/db-backup/shared/.env         # only for s3 uploaders
 php /var/www/db-backup/current/index.php    # test run
 ```
 

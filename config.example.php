@@ -44,11 +44,11 @@ return [
     'uploaders' => [
         'r2' => [
             'type' => S3Uploader::TYPE,
-            'endpoint' => $_ENV['S3_ENDPOINT'] ?? '',
+            'endpoint' => 'https://ACCOUNT_ID.r2.cloudflarestorage.com',
             'region' => 'auto',
-            'bucket' => $_ENV['S3_BUCKET'] ?? '',
-            'key' => $_ENV['S3_ACCESS_KEY_ID'] ?? '',
-            'secret' => $_ENV['S3_SECRET_ACCESS_KEY'] ?? '',
+            'bucket' => 'my-bucket',
+            'key' => '',
+            'secret' => '',
             'prefix' => 'db-backup',
             'keep_days' => 30,
         ],
@@ -56,6 +56,6 @@ return [
 
     'log' => [
         'file' => __DIR__ . '/backup.log',
-        'slack_webhook' => $_ENV['SLACK_WEBHOOK_URL'] ?? '',
+        'slack_webhook' => '',
     ],
 ];

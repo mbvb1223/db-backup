@@ -3,12 +3,12 @@
     "require": {
         "php": ">=8.2",
         "aws/aws-sdk-php": "^3.0",
-        "vlucas/phpdotenv": "^5.6",
         "symfony/lock": "^7.4",
         "monolog/monolog": "^3.0"
     },
     "require-dev": {
-        "deployer/deployer": "^8.0"
+        "deployer/deployer": "^8.0",
+        "vlucas/phpdotenv": "^5.6"
     },
     "autoload": {
         "psr-4": {

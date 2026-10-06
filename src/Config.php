@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace DbBackup;
 
-use Dotenv\Dotenv;
 use RuntimeException;
 
 readonly class Config
@@ -27,7 +26,6 @@ readonly class Config
             throw new RuntimeException("Config not found: $file (copy config.example.php to config.php)");
         }
         $dir = dirname(realpath($file));
-        Dotenv::createImmutable($dir)->safeLoad();
         $config = require $file;
 
         $backup = $config['backup'] ?? [];

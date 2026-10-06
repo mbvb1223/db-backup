@@ -8,7 +8,7 @@ set('application', 'db-backup');
 set('repository', 'git@github.com:mbvb1223/db-backup.git');
 set('keep_releases', 2);
 
-set('shared_files', ['config.php', '.env']);
+set('shared_files', ['config.php']);
 set('shared_dirs', ['backups']);
 
 $dotenv = \Dotenv\Dotenv::createArrayBacked(__DIR__);
