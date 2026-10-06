@@ -143,10 +143,11 @@ The script writes `backup.log` itself; the redirect only catches PHP crashes tha
 
 ## Restore
 
-Take the dump from `backup.dir`, or download it from the R2/S3 dashboard, then:
+Take the dump from `backup.dir`, or download it from the R2/S3 dashboard. The dump has no `CREATE DATABASE`, so create it first:
 
 ```sh
-gunzip < project_a_20261005_023000.sql.gz | mysql -h 127.0.0.1 -P 3306 -u root project_a
+mysql -h 127.0.0.1 -P 3306 -u root -p -e 'CREATE DATABASE IF NOT EXISTS project_a CHARACTER SET utf8mb4'
+gunzip < project_a_20261005_023000.sql.gz | mysql -h 127.0.0.1 -P 3306 -u root -p project_a
 ```
 
 ## License

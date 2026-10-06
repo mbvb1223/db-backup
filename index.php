@@ -44,7 +44,13 @@ $logger->info(sprintf('Backup started: %d databases', count($config->databases))
 $ok = [];
 $failed = [];
 foreach ($config->databases as $db) {
-    if ($backup->run($db)) {
+    try {
+        $success = $backup->run($db);
+    } catch (Throwable $e) {
+        fwrite(STDERR, "{$db->id()}: {$e->getMessage()}\n");
+        $success = false;
+    }
+    if ($success) {
         $ok[] = $db->id();
     } else {
         $failed[] = $db->id();
