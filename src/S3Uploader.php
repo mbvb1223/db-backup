@@ -16,7 +16,7 @@ readonly class S3Uploader implements Uploader
         private S3Client $s3,
         private string $bucket,
         private string $prefix,
-        private int $keepDays,
+        private ?int $keepDays,
     ) {
     }
 
@@ -37,16 +37,17 @@ readonly class S3Uploader implements Uploader
             $options['endpoint'] = $settings['endpoint'];
         }
 
-        return new self(new S3Client($options), $settings['bucket'], trim($settings['prefix'] ?? '', '/'), $settings['keep_days'] ?? 0);
+        return new self(new S3Client($options), $settings['bucket'], trim($settings['prefix'] ?? '', '/'), $settings['keep_days'] ?? null);
     }
 
     public function upload(string $file, string $dir): void
     {
         $dir = $this->key("$dir/");
-        $this->s3->upload($this->bucket, $dir . basename($file), Utils::tryFopen($file, 'r'), acl: null);
+        $key = $dir . basename($file);
+        $this->s3->upload($this->bucket, $key, Utils::tryFopen($file, 'r'), acl: null);
 
-        if ($this->keepDays > 0) {
-            $this->deleteOldDumps($dir);
+        if ($this->keepDays !== null) {
+            $this->deleteOldDumps($dir, $key);
         }
     }
 
@@ -55,12 +56,12 @@ readonly class S3Uploader implements Uploader
         return $this->prefix === '' ? $name : "$this->prefix/$name";
     }
 
-    private function deleteOldDumps(string $dir): void
+    private function deleteOldDumps(string $dir, string $newKey): void
     {
         $cutoff = time() - $this->keepDays * 86400;
         $objects = $this->s3->getPaginator('ListObjectsV2', ['Bucket' => $this->bucket, 'Prefix' => $dir, 'Delimiter' => '/']);
         foreach ($objects->search('Contents[]') as $object) {
-            if (str_ends_with($object['Key'], '.sql.gz') && $object['LastModified']->getTimestamp() < $cutoff) {
+            if ($object['Key'] !== $newKey && str_ends_with($object['Key'], '.sql.gz') && $object['LastModified']->getTimestamp() < $cutoff) {
                 $this->s3->deleteObject(['Bucket' => $this->bucket, 'Key' => $object['Key']]);
             }
         }

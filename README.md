@@ -62,7 +62,7 @@ GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON *.* TO 'backup'@'localho
 
 ## Uploaders
 
-Each dump is uploaded by every entry in `uploaders` (leave it empty for local only). Every uploader is tried; any failure makes the run exit non-zero. Each uploader has its own `keep_days`: after a successful upload, older `*.sql.gz` there are deleted (`0` = keep forever).
+Each dump is uploaded by every entry in `uploaders` (leave it empty for local only). Every uploader is tried; any failure makes the run exit non-zero. Each uploader has its own `keep_days`: after a successful upload, older `*.sql.gz` there are deleted (`0` keeps only the newest; leave it out to keep forever).
 
 | `type` | Stores the dump in | Settings |
 |---|---|---|
