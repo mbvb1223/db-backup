@@ -13,9 +13,8 @@ class UploaderFactory
         $type = $settings['type'] ?? '';
 
         return match ($type) {
-            'local' => LocalUploader::fromConfig($name, $settings),
             's3' => S3Uploader::fromConfig($name, $settings),
-            default => throw new RuntimeException("Uploader '$name': unknown type '$type' (supported: local, s3)"),
+            default => throw new RuntimeException("Uploader '$name': unknown type '$type' (supported: s3)"),
         };
     }
 }

@@ -1,6 +1,6 @@
 # db-backup
 
-Dumps MySQL/MariaDB databases with `mysqldump` into gzipped files and hands each one to the configured uploaders (a local folder, S3, R2), each with its own retention. Several projects can share one connection; per database you choose all tables, only some, or all except some.
+Dumps MySQL/MariaDB databases with `mysqldump` into gzipped files, uploads them to S3/R2, each place (local folder, every bucket) with its own retention. Several projects can share one connection; per database you choose all tables, only some, or all except some.
 
 Requirements on the server: PHP 8.2+ (CLI, `zlib`, `simplexml`, `curl`), `mysqldump`. Uploads use the [AWS SDK for PHP](https://github.com/aws/aws-sdk-php), installed by Composer (trimmed to S3 only).
 
@@ -27,9 +27,10 @@ Requirements on the server: PHP 8.2+ (CLI, `zlib`, `simplexml`, `curl`), `mysqld
 - One entry per server under `connections`; the key (`main`) is just a label used in the backup path.
 - `databases` also accepts a plain list: `['analytics', 'crm']`.
 - `options` – flags passed to `mysqldump`.
-- `tmp_dir` – where each dump is written before upload, then deleted (default: system temp dir).
+- `backup_dir` – where dumps are written, default `backups/` next to `config.php`. Keep it outside any web root.
+- `keep_days` – local dumps older than this are deleted after each run. `0` deletes the new dump as soon as every uploader succeeded (if one fails, it stays until the next good run). Leave it out to keep local dumps forever.
 
-File name: `<connection>/<database>/<database>_YYYYmmdd_HHMMSS.sql.gz`
+Output: `<backup_dir>/<connection>/<database>/<database>_YYYYmmdd_HHMMSS.sql.gz`
 
 ### MySQL user
 
@@ -40,14 +41,13 @@ GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON *.* TO 'backup'@'localho
 
 ## Uploaders
 
-Each dump goes to every entry in `uploaders`, then the temporary file is deleted. Each uploader has its own `keep_days`: after a successful upload, older `*.sql.gz` there are deleted (`0` = keep forever). Every uploader is tried; any failure makes the run exit non-zero.
+Each dump is uploaded by every entry in `uploaders` (leave it empty for local only). Every uploader is tried; any failure makes the run exit non-zero. Each uploader has its own `keep_days`: after a successful upload, older `*.sql.gz` there are deleted (`0` = keep forever).
 
 | `type` | Stores the dump in | Settings |
 |---|---|---|
-| `local` | `<dir>/<connection>/<database>/` | `dir`, `keep_days` |
 | `s3` | `<bucket>/<prefix>/<connection>/<database>/` (multipart above 16 MB) | `endpoint`, `region`, `bucket`, `key`, `secret`, `prefix`, `keep_days` |
 
-To keep nothing on the server, leave out the `local` uploader.
+To keep nothing on the server, set the top-level `keep_days` to `0`.
 
 R2 is S3-compatible, so it uses `'type' => 's3'`:
 
@@ -86,7 +86,7 @@ Deploys `main` to `/var/www/db-backup`:
 - `current/` – the code
 - `shared/config.php` – config, kept across deploys
 - `shared/.env` – upload keys, kept across deploys (copied from `.env.example` on first deploy)
-- `shared/backups/` – dumps of the `local` uploader, kept across deploys
+- `shared/backups/` – local dumps, kept across deploys
 
 ### First time on the server
 
@@ -111,7 +111,7 @@ On the server, `crontab -e` (check the PHP path with `which php`):
 
 ## Restore
 
-Download the dump from the R2/S3 dashboard (or take it from the `local` uploader's `dir`), then:
+Take the dump from `backup_dir`, or download it from the R2/S3 dashboard, then:
 
 ```sh
 gunzip < project_a_20261005_023000.sql.gz | mysql -u root -p project_a
