@@ -1,6 +1,6 @@
 # db-backup
 
-Backs up MySQL/MariaDB databases with `mysqldump` into gzipped files, with retention. Several projects can share one connection; per database you choose all tables, only some, or all except some.
+Dumps MySQL/MariaDB databases with `mysqldump` into gzipped files and hands each one to the configured uploaders (a local folder, S3, R2), each with its own retention. Several projects can share one connection; per database you choose all tables, only some, or all except some.
 
 Requirements on the server: PHP 8.2+ (CLI, `zlib`, `simplexml`, `curl`), `mysqldump`. Uploads use the [AWS SDK for PHP](https://github.com/aws/aws-sdk-php), installed by Composer (trimmed to S3 only).
 
@@ -26,11 +26,10 @@ Requirements on the server: PHP 8.2+ (CLI, `zlib`, `simplexml`, `curl`), `mysqld
 
 - One entry per server under `connections`; the key (`main`) is just a label used in the backup path.
 - `databases` also accepts a plain list: `['analytics', 'crm']`.
-- `keep_days` – dumps older than this are deleted after a successful new dump (default 14, `0` = keep forever).
-- `backup_dir` – defaults to `backups/` next to `config.php`. Keep it outside any web root.
 - `options` – flags passed to `mysqldump`.
+- `tmp_dir` – where each dump is written before upload, then deleted (default: system temp dir).
 
-Output: `<backup_dir>/<connection>/<database>/<database>_YYYYmmdd_HHMMSS.sql.gz`
+File name: `<connection>/<database>/<database>_YYYYmmdd_HHMMSS.sql.gz`
 
 ### MySQL user
 
@@ -39,9 +38,23 @@ CREATE USER 'backup'@'localhost' IDENTIFIED BY '...';
 GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON *.* TO 'backup'@'localhost';
 ```
 
-## Upload (S3 / R2)
+## Uploaders
 
-R2 is S3-compatible, so both use an `uploaders` entry with `'type' => 's3'`. Each new dump is also uploaded by every uploader as `<bucket>/<prefix>/<connection>/<database>/<file>` (multipart above 16 MB). Every uploader is tried; a failure makes the run exit non-zero and the local dump is kept. After a successful upload, `*.sql.gz` older than `upload_keep_days` are deleted from that bucket (`0` = keep forever). Leave `uploaders` empty to keep dumps local only.
+Each dump goes to every entry in `uploaders`, then the temporary file is deleted. Each uploader has its own `keep_days`: after a successful upload, older `*.sql.gz` there are deleted (`0` = keep forever). Every uploader is tried; any failure makes the run exit non-zero.
+
+| `type` | Stores the dump in | Settings |
+|---|---|---|
+| `local` | `<dir>/<connection>/<database>/` | `dir`, `keep_days` |
+| `s3` | `<bucket>/<prefix>/<connection>/<database>/` (multipart above 16 MB) | `endpoint`, `region`, `bucket`, `key`, `secret`, `prefix`, `keep_days` |
+
+To keep nothing on the server, leave out the `local` uploader.
+
+R2 is S3-compatible, so it uses `'type' => 's3'`:
+
+| | `endpoint` | `region` | Keys |
+|---|---|---|---|
+| Cloudflare R2 | `https://ACCOUNT_ID.r2.cloudflarestorage.com` | `auto` | R2 → *Manage API tokens* → **Object Read & Write** on the bucket |
+| AWS S3 | leave out | bucket's region | IAM user with `s3:PutObject`, `s3:ListBucket`, `s3:DeleteObject` on the bucket |
 
 Keys go in `.env` next to `config.php` (gitignored, template in `.env.example`, `shared/.env` on the server). It's loaded before `config.php`, which reads it through `$_ENV`:
 
@@ -49,11 +62,6 @@ Keys go in `.env` next to `config.php` (gitignored, template in `.env.example`, 
 S3_ACCESS_KEY_ID=...
 S3_SECRET_ACCESS_KEY=...
 ```
-
-| | `endpoint` | `region` | Keys |
-|---|---|---|---|
-| Cloudflare R2 | `https://ACCOUNT_ID.r2.cloudflarestorage.com` | `auto` | R2 → *Manage API tokens* → **Object Read & Write** on the bucket |
-| AWS S3 | leave out | bucket's region | IAM user with `s3:PutObject`, `s3:ListBucket`, `s3:DeleteObject` on the bucket |
 
 ## Run
 
@@ -78,7 +86,7 @@ Deploys `main` to `/var/www/db-backup`:
 - `current/` – the code
 - `shared/config.php` – config, kept across deploys
 - `shared/.env` – upload keys, kept across deploys (copied from `.env.example` on first deploy)
-- `shared/backups/` – dumps, kept across deploys
+- `shared/backups/` – dumps of the `local` uploader, kept across deploys
 
 ### First time on the server
 
@@ -86,7 +94,7 @@ Deploys `main` to `/var/www/db-backup`:
 cp /var/www/db-backup/current/config.example.php /var/www/db-backup/shared/config.php
 chmod 600 /var/www/db-backup/shared/config.php /var/www/db-backup/shared/.env
 nano /var/www/db-backup/shared/config.php
-nano /var/www/db-backup/shared/.env         # only if uploading
+nano /var/www/db-backup/shared/.env         # only for s3 uploaders
 php /var/www/db-backup/current/index.php    # test run
 ```
 
@@ -103,11 +111,11 @@ On the server, `crontab -e` (check the PHP path with `which php`):
 
 ## Restore
 
-```sh
-gunzip < /var/www/db-backup/shared/backups/main/project_a/project_a_20261005_023000.sql.gz | mysql -u root -p project_a
-```
+Download the dump from the R2/S3 dashboard (or take it from the `local` uploader's `dir`), then:
 
-From a bucket: download the file from the R2/S3 dashboard, then `gunzip` it the same way.
+```sh
+gunzip < project_a_20261005_023000.sql.gz | mysql -u root -p project_a
+```
 
 ## License
 
