@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DbBackup;
 
+use Closure;
 use RuntimeException;
 
 readonly class MysqlDumper
@@ -57,29 +58,36 @@ readonly class MysqlDumper
     private function runGzipped(array $commands, string $file): void
     {
         $part = "$file.part";
-        $gzip = gzopen($part, 'wb6');
-        if ($gzip === false) {
+        $out = fopen($part, 'wb');
+        if ($out === false) {
             throw new RuntimeException("cannot write $part");
         }
+        $deflate = deflate_init(ZLIB_ENCODING_GZIP, ['level' => 6]);
 
         try {
             foreach ($commands as $command) {
-                $this->run($command, $gzip);
+                $this->run($command, fn (string $chunk) => $this->write($out, deflate_add($deflate, $chunk, ZLIB_NO_FLUSH)));
             }
+            $this->write($out, deflate_add($deflate, '', ZLIB_FINISH));
         } catch (RuntimeException $e) {
-            gzclose($gzip);
+            fclose($out);
             unlink($part);
             throw $e;
         }
 
-        if (!gzclose($gzip)) {
-            unlink($part);
-            throw new RuntimeException("cannot write $part (disk full?)");
-        }
+        fclose($out);
         rename($part, $file);
     }
 
-    private function run(array $command, $gzip): void
+    // gzclose()/fclose() return true even when the final write fails, so every write is checked
+    private function write($out, string $data): void
+    {
+        if ($data !== '' && fwrite($out, $data) !== strlen($data)) {
+            throw new RuntimeException('cannot write the dump (disk full?)');
+        }
+    }
+
+    private function run(array $command, Closure $write): void
     {
         $stderr = tmpfile();
         $process = proc_open($command, [1 => ['pipe', 'w'], 2 => $stderr], $pipes);
@@ -87,13 +95,19 @@ readonly class MysqlDumper
             throw new RuntimeException("cannot start {$this->config->mysqldump}");
         }
 
-        $copied = stream_copy_to_stream($pipes[1], $gzip);
-        fclose($pipes[1]);
-        $exitCode = proc_close($process);
-
-        if ($copied === false) {
-            throw new RuntimeException('cannot write the dump (disk full?)');
+        try {
+            while (!feof($pipes[1])) {
+                $chunk = fread($pipes[1], 1 << 20);
+                if ($chunk === false) {
+                    throw new RuntimeException('cannot read mysqldump output');
+                }
+                $write($chunk);
+            }
+        } finally {
+            fclose($pipes[1]);
+            $exitCode = proc_close($process);
         }
+
         if ($exitCode !== 0) {
             rewind($stderr);
             throw new RuntimeException("mysqldump exit $exitCode: " . trim(stream_get_contents($stderr)));
