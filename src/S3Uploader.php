@@ -8,7 +8,7 @@ use Aws\S3\S3Client;
 use GuzzleHttp\Psr7\Utils;
 use RuntimeException;
 
-readonly class S3Remote
+readonly class S3Uploader
 {
     public function __construct(
         private S3Client $s3,
@@ -22,7 +22,7 @@ readonly class S3Remote
     {
         foreach (['bucket', 'key', 'secret'] as $key) {
             if (empty($settings[$key])) {
-                throw new RuntimeException("Remote '$name': '$key' is not set (check .env)");
+                throw new RuntimeException("Uploader '$name': '$key' is not set (check .env)");
             }
         }
 

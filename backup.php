@@ -7,7 +7,7 @@ use DbBackup\Backup;
 use DbBackup\Config;
 use DbBackup\Database;
 use DbBackup\MysqlDumper;
-use DbBackup\S3Remote;
+use DbBackup\S3Uploader;
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -21,19 +21,14 @@ if (!is_file(__DIR__ . '/vendor/autoload.php')) {
 require __DIR__ . '/vendor/autoload.php';
 
 try {
-    $config = Config::load(getenv('DB_BACKUP_CONFIG') ?: __DIR__ . '/config.php');
+    $config = Config::load(__DIR__ . '/config.php');
 
-    $remotes = [];
-    foreach ($config->remotes as $name => $settings) {
-        $remotes[$name] = S3Remote::fromConfig($name, $settings, $config->remoteKeepDays);
+    $uploaders = [];
+    foreach ($config->uploaders as $name => $settings) {
+        $uploaders[$name] = S3Uploader::fromConfig($name, $settings, $config->uploadKeepDays);
     }
 
-    $backup = new Backup(
-        new MysqlDumper($config->mysqldump, $config->mysqldumpOptions),
-        $remotes,
-        $config->backupDir,
-        $config->keepDays,
-    );
+    $backup = new Backup($config, new MysqlDumper($config), $uploaders);
 
     $requested = array_slice($argv, 1);
     $databases = array_filter(

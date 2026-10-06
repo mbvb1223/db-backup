@@ -41,7 +41,7 @@ GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON *.* TO 'backup'@'localho
 
 ## Upload (S3 / R2)
 
-R2 is S3-compatible, so both use the same `remotes` entry. Each new dump is also uploaded to every remote as `<bucket>/<prefix>/<connection>/<database>/<file>` (multipart above 16 MB). Every remote is tried; a failure makes the run exit non-zero and the local dump is kept. After a successful upload, `*.sql.gz` older than `remote_keep_days` are deleted from that remote (`0` = keep forever). Leave `remotes` empty to keep dumps local only.
+R2 is S3-compatible, so both use the same `uploaders` entry. Each new dump is also uploaded by every uploader as `<bucket>/<prefix>/<connection>/<database>/<file>` (multipart above 16 MB). Every uploader is tried; a failure makes the run exit non-zero and the local dump is kept. After a successful upload, `*.sql.gz` older than `upload_keep_days` are deleted from that bucket (`0` = keep forever). Leave `uploaders` empty to keep dumps local only.
 
 Keys go in `.env` next to `config.php` (gitignored, template in `.env.example`, `shared/.env` on the server). It's loaded before `config.php`, which reads it through `$_ENV`:
 
@@ -116,7 +116,7 @@ Different times per project – one line each:
 gunzip < /var/www/db-backup/shared/backups/main/project_a/project_a_20261005_023000.sql.gz | mysql -u root -p project_a
 ```
 
-From a remote: download the file from the R2/S3 dashboard, then `gunzip` it the same way.
+From a bucket: download the file from the R2/S3 dashboard, then `gunzip` it the same way.
 
 ## License
 

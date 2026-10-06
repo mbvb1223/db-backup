@@ -8,10 +8,8 @@ use RuntimeException;
 
 readonly class MysqlDumper
 {
-    public function __construct(
-        private string $binary,
-        private array $options,
-    ) {
+    public function __construct(private Config $config)
+    {
     }
 
     public function dump(Database $db, string $dir): string
@@ -23,7 +21,7 @@ readonly class MysqlDumper
 
         $credentialsFile = $this->writeCredentialsFile($db->server);
         try {
-            $command = [$this->binary, "--defaults-extra-file=$credentialsFile", ...$this->options];
+            $command = [$this->config->mysqldump, "--defaults-extra-file=$credentialsFile", ...$this->config->mysqldumpOptions];
             foreach ($db->exclude as $table) {
                 $command[] = "--ignore-table=$db->name.$table";
             }
@@ -66,7 +64,7 @@ readonly class MysqlDumper
         if ($process === false) {
             gzclose($gzip);
             unlink($part);
-            throw new RuntimeException("cannot start $this->binary");
+            throw new RuntimeException("cannot start {$this->config->mysqldump}");
         }
 
         $copied = stream_copy_to_stream($pipes[1], $gzip);

@@ -10,19 +10,18 @@ use Throwable;
 readonly class Backup
 {
     public function __construct(
+        private Config $config,
         private MysqlDumper $dumper,
-        private array $remotes,
-        private string $backupDir,
-        private int $keepDays,
+        private array $uploaders,
     ) {
     }
 
     public function run(array $databases): bool
     {
-        if (!is_dir($this->backupDir) && !mkdir($this->backupDir, 0700, true)) {
-            throw new RuntimeException("Cannot create $this->backupDir");
+        if (!is_dir($this->config->backupDir) && !mkdir($this->config->backupDir, 0700, true)) {
+            throw new RuntimeException("Cannot create {$this->config->backupDir}");
         }
-        $lock = fopen("$this->backupDir/.lock", 'c');
+        $lock = fopen("{$this->config->backupDir}/.lock", 'c');
         if (!flock($lock, LOCK_EX | LOCK_NB)) {
             $this->log('Another backup run is in progress, exiting');
             return false;
@@ -43,22 +42,22 @@ readonly class Backup
     {
         $started = microtime(true);
         try {
-            $file = $this->dumper->dump($db, "$this->backupDir/{$db->id()}");
+            $file = $this->dumper->dump($db, "{$this->config->backupDir}/{$db->id()}");
         } catch (Throwable $e) {
             $this->log("FAIL {$db->id()}: {$e->getMessage()}");
             return false;
         }
         $this->log(sprintf('OK   %s -> %s (%.1f MB, %.1fs)', $db->id(), $file, filesize($file) / 1048576, microtime(true) - $started));
 
-        if ($this->keepDays > 0) {
+        if ($this->config->keepDays > 0) {
             $this->deleteOldDumps(dirname($file));
         }
 
         $allUploaded = true;
-        foreach ($this->remotes as $name => $remote) {
+        foreach ($this->uploaders as $name => $uploader) {
             $started = microtime(true);
             try {
-                $remote->upload($file, $db->id());
+                $uploader->upload($file, $db->id());
                 $this->log(sprintf('UP   %s -> %s (%.1fs)', $db->id(), $name, microtime(true) - $started));
             } catch (Throwable $e) {
                 $allUploaded = false;
@@ -71,7 +70,7 @@ readonly class Backup
 
     private function deleteOldDumps(string $dir): void
     {
-        $cutoff = time() - $this->keepDays * 86400;
+        $cutoff = time() - $this->config->keepDays * 86400;
         foreach (glob("$dir/*.sql.gz") ?: [] as $file) {
             if (filemtime($file) < $cutoff) {
                 unlink($file);

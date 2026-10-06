@@ -7,7 +7,7 @@ return [
 
     'mysqldump' => 'mysqldump',
 
-    'remotes' => [
+    'uploaders' => [
         'r2' => [
             'endpoint' => 'https://ACCOUNT_ID.r2.cloudflarestorage.com',
             'region' => 'auto',
@@ -17,7 +17,7 @@ return [
             'prefix' => 'db-backup',
         ],
     ],
-    'remote_keep_days' => 30,
+    'upload_keep_days' => 30,
 
     'options' => [
         '--single-transaction',
