@@ -7,93 +7,81 @@ namespace DbBackup;
 use RuntimeException;
 use Throwable;
 
-class Backup
+readonly class Backup
 {
-    /** @param array<string, Remote> $remotes keyed by name, used in log lines */
     public function __construct(
-        private readonly MysqlDumper $dumper,
-        private readonly array $remotes,
-        private readonly Logger $logger,
-        private readonly string $backupDir,
-        private readonly int $keepDays,
+        private MysqlDumper $dumper,
+        private array $remotes,
+        private string $backupDir,
+        private int $keepDays,
     ) {
     }
 
-    /**
-     * @param iterable<array{string, array, string, array}> $databases from Config::databases()
-     * @return bool false if any dump or upload failed, or another run holds the lock
-     */
-    public function run(iterable $databases): bool
+    public function run(array $databases): bool
     {
         if (!is_dir($this->backupDir) && !mkdir($this->backupDir, 0700, true)) {
             throw new RuntimeException("Cannot create $this->backupDir");
         }
         $lock = fopen("$this->backupDir/.lock", 'c');
         if (!flock($lock, LOCK_EX | LOCK_NB)) {
-            $this->logger->log('Another backup run is in progress, exiting');
+            $this->log('Another backup run is in progress, exiting');
             return false;
         }
 
-        $ok = $failed = 0;
-        foreach ($databases as [$connName, $server, $db, $rules]) {
-            $this->backup($connName, $server, $db, $rules) ? $ok++ : $failed++;
+        $failed = 0;
+        foreach ($databases as $db) {
+            if (!$this->backup($db)) {
+                $failed++;
+            }
         }
-        $this->logger->log("Done: $ok ok, $failed failed");
+        $this->log(sprintf('Done: %d ok, %d failed', count($databases) - $failed, $failed));
 
         return $failed === 0;
     }
 
-    private function backup(string $connName, array $server, string $db, array $rules): bool
+    private function backup(Database $db): bool
     {
-        $name = "$connName/$db";
         $started = microtime(true);
         try {
-            $file = $this->dumper->dump($server, $db, $rules, "$this->backupDir/$name");
+            $file = $this->dumper->dump($db, "$this->backupDir/{$db->id()}");
         } catch (Throwable $e) {
-            $this->logger->log("FAIL $name: " . $e->getMessage());
+            $this->log("FAIL {$db->id()}: {$e->getMessage()}");
             return false;
         }
-        $this->logger->log(sprintf('OK   %s -> %s (%s, %.1fs)', $name, $file, $this->formatBytes(filesize($file)), microtime(true) - $started));
+        $this->log(sprintf('OK   %s -> %s (%.1f MB, %.1fs)', $db->id(), $file, filesize($file) / 1048576, microtime(true) - $started));
+
         if ($this->keepDays > 0) {
-            $this->prune(dirname($file));
+            $this->deleteOldDumps(dirname($file));
         }
 
-        // Every remote is tried even if an earlier one fails; the local dump stays either way.
-        $uploaded = true;
-        foreach ($this->remotes as $remoteName => $remote) {
+        $allUploaded = true;
+        foreach ($this->remotes as $name => $remote) {
             $started = microtime(true);
             try {
-                $remote->upload($file, $name);
-                $this->logger->log(sprintf('UP   %s -> %s (%.1fs)', $name, $remoteName, microtime(true) - $started));
+                $remote->upload($file, $db->id());
+                $this->log(sprintf('UP   %s -> %s (%.1fs)', $db->id(), $name, microtime(true) - $started));
             } catch (Throwable $e) {
-                $uploaded = false;
-                $this->logger->log("FAIL $name -> $remoteName: " . $e->getMessage());
+                $allUploaded = false;
+                $this->log("FAIL {$db->id()} -> $name: {$e->getMessage()}");
             }
         }
 
-        return $uploaded;
+        return $allUploaded;
     }
 
-    private function prune(string $dir): void
+    private function deleteOldDumps(string $dir): void
     {
         $cutoff = time() - $this->keepDays * 86400;
-        foreach (glob("$dir/*.sql.gz") ?: [] as $f) {
-            if (filemtime($f) < $cutoff) {
-                unlink($f);
-                $this->logger->log("DEL  $f");
+        foreach (glob("$dir/*.sql.gz") ?: [] as $file) {
+            if (filemtime($file) < $cutoff) {
+                unlink($file);
+                $this->log("DEL  $file");
             }
         }
     }
 
-    private function formatBytes(int $bytes): string
+    private function log(string $message): void
     {
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $i = 0;
-        while ($bytes >= 1024 && $i < count($units) - 1) {
-            $bytes /= 1024;
-            $i++;
-        }
-
-        return round($bytes, 1) . ' ' . $units[$i];
+        echo '[' . date('Y-m-d H:i:s') . '] ' . str_replace("\n", ' ', $message) . "\n";
     }
 }

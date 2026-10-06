@@ -41,9 +41,9 @@ GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT ON *.* TO 'backup'@'localho
 
 ## Upload (S3 / R2)
 
-R2 is S3-compatible, so both use the same `remotes` entry. Each new dump is also uploaded to every remote as `<bucket>/<prefix>/<connection>/<database>/<file>` (multipart above 16 MB). Every remote is tried; a failure makes the run exit non-zero and the local dump is kept. After a successful upload, `*.sql.gz` older than `remote_keep_days` are deleted from that remote.
+R2 is S3-compatible, so both use the same `remotes` entry. Each new dump is also uploaded to every remote as `<bucket>/<prefix>/<connection>/<database>/<file>` (multipart above 16 MB). Every remote is tried; a failure makes the run exit non-zero and the local dump is kept. After a successful upload, `*.sql.gz` older than `remote_keep_days` are deleted from that remote (`0` = keep forever). Leave `remotes` empty to keep dumps local only.
 
-Keys go in `.env` next to `config.php` (gitignored, template in `.env.example`, `shared/.env` on the server). It's loaded before `config.php`, which reads it with `getenv()`:
+Keys go in `.env` next to `config.php` (gitignored, template in `.env.example`, `shared/.env` on the server). It's loaded before `config.php`, which reads it through `$_ENV`:
 
 ```
 S3_ACCESS_KEY_ID=...

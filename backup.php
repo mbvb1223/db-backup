@@ -3,10 +3,9 @@
 
 declare(strict_types=1);
 
-use Aws\S3\S3Client;
 use DbBackup\Backup;
 use DbBackup\Config;
-use DbBackup\Logger;
+use DbBackup\Database;
 use DbBackup\MysqlDumper;
 use DbBackup\S3Remote;
 
@@ -24,19 +23,25 @@ require __DIR__ . '/vendor/autoload.php';
 try {
     $config = Config::load(getenv('DB_BACKUP_CONFIG') ?: __DIR__ . '/config.php');
 
-    $remotes = array_map(
-        fn (array $r) => new S3Remote(new S3Client($r['client']), $r['bucket'], $r['prefix'], $config->remoteKeepDays()),
-        $config->remotes()
-    );
+    $remotes = [];
+    foreach ($config->remotes as $name => $settings) {
+        $remotes[$name] = S3Remote::fromConfig($name, $settings, $config->remoteKeepDays);
+    }
+
     $backup = new Backup(
-        new MysqlDumper($config->mysqldump(), $config->options()),
+        new MysqlDumper($config->mysqldump, $config->mysqldumpOptions),
         $remotes,
-        new Logger(),
-        $config->backupDir(),
-        $config->keepDays()
+        $config->backupDir,
+        $config->keepDays,
     );
 
-    exit($backup->run($config->databases(array_slice($argv, 1))) ? 0 : 1);
+    $requested = array_slice($argv, 1);
+    $databases = array_filter(
+        $config->databases,
+        fn (Database $db) => !$requested || in_array($db->name, $requested, true) || in_array($db->id(), $requested, true),
+    );
+
+    exit($backup->run($databases) ? 0 : 1);
 } catch (RuntimeException|InvalidArgumentException $e) {
     fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);

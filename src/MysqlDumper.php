@@ -6,53 +6,42 @@ namespace DbBackup;
 
 use RuntimeException;
 
-class MysqlDumper
+readonly class MysqlDumper
 {
-    /** @param string[] $options */
     public function __construct(
-        private readonly string $binary,
-        private readonly array $options,
+        private string $binary,
+        private array $options,
     ) {
     }
 
-    /** @return string path of the new .sql.gz */
-    public function dump(array $server, string $db, array $rules, string $dir): string
+    public function dump(Database $db, string $dir): string
     {
-        $include = $rules['include'] ?? [];
-        $exclude = $rules['exclude'] ?? [];
-        if ($include && $exclude) {
-            throw new RuntimeException('use either include or exclude, not both');
-        }
-
         if (!is_dir($dir) && !mkdir($dir, 0700, true)) {
             throw new RuntimeException("cannot create $dir");
         }
-        $file = "$dir/{$db}_" . date('Ymd_His') . '.sql.gz';
+        $file = "$dir/{$db->name}_" . date('Ymd_His') . '.sql.gz';
 
-        $cnf = $this->writeCredentials($server);
+        $credentialsFile = $this->writeCredentialsFile($db->server);
         try {
-            // --defaults-extra-file must be the first argument
-            $cmd = [$this->binary, "--defaults-extra-file=$cnf", ...$this->options];
-            foreach ($exclude as $table) {
-                $cmd[] = "--ignore-table=$db.$table";
+            $command = [$this->binary, "--defaults-extra-file=$credentialsFile", ...$this->options];
+            foreach ($db->exclude as $table) {
+                $command[] = "--ignore-table=$db->name.$table";
             }
-            $cmd[] = $db;
-            array_push($cmd, ...$include);
+            $command = [...$command, $db->name, ...$db->include];
 
-            $this->run($cmd, $file);
+            $this->runGzipped($command, $file);
         } finally {
-            unlink($cnf);
+            unlink($credentialsFile);
         }
 
         return $file;
     }
 
-    // Credentials go in a temp option file so the password never shows up in `ps`.
-    private function writeCredentials(array $server): string
+    private function writeCredentialsFile(array $server): string
     {
         $lines = ['[client]'];
         foreach (['host', 'port', 'socket', 'user', 'password'] as $key) {
-            if (isset($server[$key]) && $server[$key] !== '') {
+            if (($server[$key] ?? '') !== '') {
                 $lines[] = $key . '="' . addcslashes((string) $server[$key], '"\\') . '"';
             }
         }
@@ -64,41 +53,36 @@ class MysqlDumper
         return $path;
     }
 
-    private function run(array $cmd, string $file): void
+    private function runGzipped(array $command, string $file): void
     {
         $part = "$file.part";
+        $gzip = gzopen($part, 'wb6');
+        if ($gzip === false) {
+            throw new RuntimeException("cannot write $part");
+        }
+
         $stderr = tmpfile();
-        $proc = proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => $stderr], $pipes);
-        if (!is_resource($proc)) {
-            throw new RuntimeException('cannot start mysqldump');
+        $process = proc_open($command, [1 => ['pipe', 'w'], 2 => $stderr], $pipes);
+        if ($process === false) {
+            gzclose($gzip);
+            unlink($part);
+            throw new RuntimeException("cannot start $this->binary");
         }
 
-        $gz = gzopen($part, 'wb6');
-        $error = $gz === false ? "cannot open $part" : null;
-        while ($error === null && !feof($pipes[1])) {
-            $chunk = (string) fread($pipes[1], 1 << 20);
-            if ($chunk !== '' && gzwrite($gz, $chunk) !== strlen($chunk)) {
-                $error = "write failed: $part (disk full?)";
-            }
-        }
-        if ($error !== null) {
-            proc_terminate($proc);
-        }
+        $copied = stream_copy_to_stream($pipes[1], $gzip);
         fclose($pipes[1]);
-        if ($gz !== false) {
-            gzclose($gz);
-        }
-        $code = proc_close($proc);
+        $written = gzclose($gzip) && $copied !== false;
+        $exitCode = proc_close($process);
 
-        if ($error === null && $code !== 0) {
+        if (!$written) {
+            unlink($part);
+            throw new RuntimeException("cannot write $part (disk full?)");
+        }
+        if ($exitCode !== 0) {
+            unlink($part);
             rewind($stderr);
-            $error = "mysqldump exit $code: " . trim(stream_get_contents($stderr));
+            throw new RuntimeException("mysqldump exit $exitCode: " . trim(stream_get_contents($stderr)));
         }
-        if ($error !== null) {
-            @unlink($part);
-            throw new RuntimeException($error);
-        }
-
         rename($part, $file);
     }
 }
