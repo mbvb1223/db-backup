@@ -44,9 +44,9 @@ return [
     'uploaders' => [
         'r2' => [
             'type' => S3Uploader::TYPE,
-            'endpoint' => 'https://ACCOUNT_ID.r2.cloudflarestorage.com',
+            'endpoint' => $_ENV['S3_ENDPOINT'] ?? '',
             'region' => 'auto',
-            'bucket' => 'my-bucket',
+            'bucket' => $_ENV['S3_BUCKET'] ?? '',
             'key' => $_ENV['S3_ACCESS_KEY_ID'] ?? '',
             'secret' => $_ENV['S3_SECRET_ACCESS_KEY'] ?? '',
             'prefix' => 'db-backup',

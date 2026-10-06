@@ -33,7 +33,7 @@ readonly class S3Uploader implements Uploader
             'region' => $settings['region'] ?? 'auto',
             'credentials' => ['key' => $settings['key'], 'secret' => $settings['secret']],
         ];
-        if (isset($settings['endpoint'])) {
+        if (!empty($settings['endpoint'])) {
             $options['endpoint'] = $settings['endpoint'];
         }
 

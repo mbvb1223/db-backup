@@ -70,14 +70,16 @@ To keep nothing on the server, set `backup.keep_days` to `0`.
 
 R2 is S3-compatible, so it uses `'type' => S3Uploader::TYPE` (`'s3'`):
 
-| | `endpoint` | `region` | Keys |
+| | `S3_ENDPOINT` | `region` | Keys |
 |---|---|---|---|
 | Cloudflare R2 | `https://ACCOUNT_ID.r2.cloudflarestorage.com` | `auto` | R2 → *Manage API tokens* → **Object Read & Write** on the bucket |
-| AWS S3 | leave out | bucket's region | IAM user with `s3:PutObject`, `s3:ListBucket`, `s3:DeleteObject` on the bucket |
+| AWS S3 | leave empty | bucket's region | IAM user with `s3:PutObject`, `s3:ListBucket`, `s3:DeleteObject` on the bucket |
 
-Keys go in `.env` next to `config.php` (gitignored, template in `.env.example`, `shared/.env` on the server). It's loaded before `config.php`, which reads it through `$_ENV`:
+Endpoint, bucket and keys go in `.env` next to `config.php` (gitignored, template in `.env.example`, `shared/.env` on the server). It's loaded before `config.php`, which reads it through `$_ENV`:
 
 ```
+S3_ENDPOINT=https://ACCOUNT_ID.r2.cloudflarestorage.com
+S3_BUCKET=my-bucket
 S3_ACCESS_KEY_ID=...
 S3_SECRET_ACCESS_KEY=...
 ```
