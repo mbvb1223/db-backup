@@ -21,7 +21,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 try {
     $config = Config::load(__DIR__ . '/config.php');
-} catch (RuntimeException|InvalidArgumentException $e) {
+} catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
 }
@@ -33,7 +33,7 @@ try {
     foreach ($config->uploaders as $name => $settings) {
         $uploaders[$name] = UploaderFactory::create($name, $settings);
     }
-} catch (RuntimeException|InvalidArgumentException $e) {
+} catch (Throwable $e) {
     $logger->error($e->getMessage());
     exit(1);
 }
