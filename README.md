@@ -146,7 +146,7 @@ The script writes `backup.log` itself; the redirect only catches PHP crashes tha
 Take the dump from `backup.dir`, or download it from the R2/S3 dashboard, then:
 
 ```sh
-gunzip < project_a_20261005_023000.sql.gz | mysql -u root -p project_a
+gunzip < project_a_20261005_023000.sql.gz | mysql -h 127.0.0.1 -P 3306 -u root project_a
 ```
 
 ## License
