@@ -8,7 +8,7 @@ use Aws\S3\S3Client;
 use GuzzleHttp\Psr7\Utils;
 use RuntimeException;
 
-readonly class S3Uploader
+readonly class S3Uploader implements Uploader
 {
     public function __construct(
         private S3Client $s3,

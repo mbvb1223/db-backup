@@ -6,7 +6,7 @@ declare(strict_types=1);
 use DbBackup\Backup;
 use DbBackup\Config;
 use DbBackup\MysqlDumper;
-use DbBackup\S3Uploader;
+use DbBackup\UploaderFactory;
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -24,7 +24,7 @@ try {
 
     $uploaders = [];
     foreach ($config->uploaders as $name => $settings) {
-        $uploaders[$name] = S3Uploader::fromConfig($name, $settings, $config->uploadKeepDays);
+        $uploaders[$name] = UploaderFactory::create($name, $settings, $config->uploadKeepDays);
     }
 
     $backup = new Backup($config, new MysqlDumper($config), $uploaders);

@@ -9,6 +9,7 @@ return [
 
     'uploaders' => [
         'r2' => [
+            'type' => 's3',
             'endpoint' => 'https://ACCOUNT_ID.r2.cloudflarestorage.com',
             'region' => 'auto',
             'bucket' => 'my-bucket',
