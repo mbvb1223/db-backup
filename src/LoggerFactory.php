@@ -10,6 +10,7 @@ use Monolog\Handler\StreamHandler;
 use Monolog\Handler\WhatFailureGroupHandler;
 use Monolog\Level;
 use Monolog\Logger;
+use Monolog\LogRecord;
 use Psr\Log\LoggerInterface;
 
 class LoggerFactory
@@ -25,7 +26,11 @@ class LoggerFactory
         }
 
         if ($config->slackWebhook !== '') {
-            $slack = new SlackWebhookHandler($config->slackWebhook, username: 'db-backup@' . gethostname(), level: Level::Notice);
+            $slack = new SlackWebhookHandler($config->slackWebhook, useAttachment: false, level: Level::Notice);
+            $slack->pushProcessor(fn (LogRecord $record) => $record->with(
+                message: ($record->level->isHigherThan(Level::Notice) ? '❌ ' : '✅ ') . $record->message,
+            ));
+            $slack->setFormatter(new LineFormatter("%message%\n_" . gethostname() . '_', allowInlineLineBreaks: true));
             $logger->pushHandler(new WhatFailureGroupHandler([$slack]));
         }
 

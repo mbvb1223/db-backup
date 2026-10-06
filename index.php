@@ -41,13 +41,23 @@ try {
 $backup = new Backup($config, new MysqlDumper($config), $uploaders, $logger);
 
 $logger->info(sprintf('Backup started: %d databases', count($config->databases)));
-$failed = 0;
+$ok = [];
+$failed = [];
 foreach ($config->databases as $db) {
-    if (!$backup->run($db)) {
-        $failed++;
+    if ($backup->run($db)) {
+        $ok[] = $db->id();
+    } else {
+        $failed[] = $db->id();
     }
 }
-$summary = sprintf('Backup finished: %d ok, %d failed', count($config->databases) - $failed, $failed);
-$failed > 0 ? $logger->error($summary) : $logger->notice($summary);
 
-exit($failed > 0 ? 1 : 0);
+$summary = sprintf('Backup finished: %d ok, %d failed', count($ok), count($failed));
+if ($ok) {
+    $summary .= "\nOK: " . implode(', ', $ok);
+}
+if ($failed) {
+    $summary .= "\nFailed: " . implode(', ', $failed);
+}
+$failed ? $logger->error($summary) : $logger->notice($summary);
+
+exit($failed ? 1 : 0);
