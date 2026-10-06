@@ -66,7 +66,7 @@ Each dump is uploaded by every entry in `uploaders` (leave it empty for local on
 
 | `type` | Stores the dump in | Settings |
 |---|---|---|
-| `s3` | `<bucket>/<prefix>/` (multipart above 16 MB) | `endpoint`, `region`, `bucket`, `key`, `secret`, `prefix`, `keep_days` |
+| `s3` | `<bucket>/<prefix>/<connection>/<database>/` (multipart above 16 MB) | `endpoint`, `region`, `bucket`, `key`, `secret`, `prefix`, `keep_days` |
 
 To keep nothing on the server, set `backup.keep_days` to `0`.
 

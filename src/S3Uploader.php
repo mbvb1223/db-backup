@@ -40,12 +40,13 @@ readonly class S3Uploader implements Uploader
         return new self(new S3Client($options), $settings['bucket'], trim($settings['prefix'] ?? '', '/'), $settings['keep_days'] ?? 0);
     }
 
-    public function upload(string $file): void
+    public function upload(string $file, string $dir): void
     {
-        $this->s3->upload($this->bucket, $this->key(basename($file)), Utils::tryFopen($file, 'r'), acl: null);
+        $dir = $this->key("$dir/");
+        $this->s3->upload($this->bucket, $dir . basename($file), Utils::tryFopen($file, 'r'), acl: null);
 
         if ($this->keepDays > 0) {
-            $this->deleteOldDumps();
+            $this->deleteOldDumps($dir);
         }
     }
 
@@ -54,10 +55,10 @@ readonly class S3Uploader implements Uploader
         return $this->prefix === '' ? $name : "$this->prefix/$name";
     }
 
-    private function deleteOldDumps(): void
+    private function deleteOldDumps(string $dir): void
     {
         $cutoff = time() - $this->keepDays * 86400;
-        $objects = $this->s3->getPaginator('ListObjectsV2', ['Bucket' => $this->bucket, 'Prefix' => $this->key(''), 'Delimiter' => '/']);
+        $objects = $this->s3->getPaginator('ListObjectsV2', ['Bucket' => $this->bucket, 'Prefix' => $dir, 'Delimiter' => '/']);
         foreach ($objects->search('Contents[]') as $object) {
             if (str_ends_with($object['Key'], '.sql.gz') && $object['LastModified']->getTimestamp() < $cutoff) {
                 $this->s3->deleteObject(['Bucket' => $this->bucket, 'Key' => $object['Key']]);

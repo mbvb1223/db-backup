@@ -68,7 +68,7 @@ readonly class Backup
         foreach ($this->uploaders as $name => $uploader) {
             $started = microtime(true);
             try {
-                $uploader->upload($file);
+                $uploader->upload($file, $db->id());
                 $this->logger->info(sprintf('%s: uploaded to %s (%.1fs)', $db->id(), $name, microtime(true) - $started));
             } catch (Throwable $e) {
                 $allUploaded = false;
