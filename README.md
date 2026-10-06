@@ -58,12 +58,10 @@ S3_SECRET_ACCESS_KEY=...
 ## Run
 
 ```sh
-php backup.php                  # all databases
-php backup.php project_a        # one database
-php backup.php main/project_a   # one database on a specific connection
+php backup.php   # backs up every database in config.php
 ```
 
-Exit code is non-zero if any database failed. A lock prevents overlapping runs.
+Exit code is non-zero if any database failed. A per-database lock skips a database whose previous backup is still running.
 
 ## Deploy (Deployer)
 
@@ -101,13 +99,6 @@ On the server, `crontab -e` (check the PHP path with `which php`):
 ```
 # every day at 02:30
 30 2 * * * /usr/bin/php /var/www/db-backup/current/backup.php >> /var/www/db-backup/shared/backup.log 2>&1
-```
-
-Different times per project – one line each:
-
-```
-30 2 * * *  /usr/bin/php /var/www/db-backup/current/backup.php project_a >> /var/www/db-backup/shared/backup.log 2>&1
-0 */6 * * * /usr/bin/php /var/www/db-backup/current/backup.php project_b >> /var/www/db-backup/shared/backup.log 2>&1
 ```
 
 ## Restore

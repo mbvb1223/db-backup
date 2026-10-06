@@ -5,7 +5,6 @@ declare(strict_types=1);
 
 use DbBackup\Backup;
 use DbBackup\Config;
-use DbBackup\Database;
 use DbBackup\MysqlDumper;
 use DbBackup\S3Uploader;
 
@@ -29,15 +28,15 @@ try {
     }
 
     $backup = new Backup($config, new MysqlDumper($config), $uploaders);
-
-    $requested = array_slice($argv, 1);
-    $databases = array_filter(
-        $config->databases,
-        fn (Database $db) => !$requested || in_array($db->name, $requested, true) || in_array($db->id(), $requested, true),
-    );
-
-    exit($backup->run($databases) ? 0 : 1);
 } catch (RuntimeException|InvalidArgumentException $e) {
     fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
 }
+
+$exitCode = 0;
+foreach ($config->databases as $db) {
+    if (!$backup->run($db)) {
+        $exitCode = 1;
+    }
+}
+exit($exitCode);
