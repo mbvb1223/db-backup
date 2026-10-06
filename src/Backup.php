@@ -9,10 +9,11 @@ use Throwable;
 
 readonly class Backup
 {
-    /** @param array<string, Uploader> $uploaders */
+
     public function __construct(
         private Config $config,
         private MysqlDumper $dumper,
+        /** @param array<string, Uploader> $uploaders */
         private array $uploaders,
     ) {
     }
