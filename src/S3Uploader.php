@@ -10,6 +10,8 @@ use RuntimeException;
 
 readonly class S3Uploader implements Uploader
 {
+    public const string TYPE = 's3';
+
     public function __construct(
         private S3Client $s3,
         private string $bucket,
