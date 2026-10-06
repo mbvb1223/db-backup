@@ -6,5 +6,5 @@ namespace DbBackup;
 
 interface Uploader
 {
-    public function upload(string $file, string $dir): void;
+    public function upload(string $file): void;
 }
