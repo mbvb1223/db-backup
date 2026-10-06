@@ -52,7 +52,7 @@ readonly class Backup
 
         $allUploaded = $this->upload($db, $file);
 
-        if ($this->config->keepDays !== null) {
+        if ($this->config->keepDays > 0 || ($this->config->keepDays === 0 && $allUploaded)) {
             $this->deleteOldDumps($dir, $file);
         }
         if ($this->config->keepDays === 0 && $allUploaded) {
