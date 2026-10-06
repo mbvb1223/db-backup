@@ -14,8 +14,8 @@ readonly class Config
         public ?int $keepDays,
         public string $mysqldump,
         public array $mysqldumpOptions,
-        public array $uploaders,
         public array $databases,
+        public array $uploaders,
         public string $logFile,
         public string $slackWebhook,
     ) {
@@ -30,20 +30,28 @@ readonly class Config
         Dotenv::createImmutable($dir)->safeLoad();
         $config = require $file;
 
-        $keepDays = $config['keep_days'] ?? null;
-        if ($keepDays === 0 && empty($config['uploaders'])) {
+        $backup = $config['backup'] ?? [];
+        $uploaders = $config['uploaders'] ?? [];
+        $log = $config['log'] ?? [];
+
+        $databases = self::databases($backup['connections'] ?? []);
+        if (!$databases) {
+            throw new RuntimeException("No databases in $file: add them under 'backup' => ['connections' => ...]");
+        }
+        $keepDays = $backup['keep_days'] ?? null;
+        if ($keepDays === 0 && !$uploaders) {
             throw new RuntimeException("'keep_days' => 0 deletes every dump right away: add an uploader or keep them longer");
         }
 
         return new self(
-            backupDir: rtrim($config['backup_dir'] ?? "$dir/backups", '/'),
+            backupDir: rtrim($backup['dir'] ?? "$dir/backups", '/'),
             keepDays: $keepDays,
-            mysqldump: $config['mysqldump'] ?? 'mysqldump',
-            mysqldumpOptions: $config['options'] ?? [],
-            uploaders: $config['uploaders'] ?? [],
-            databases: self::databases($config['connections']),
-            logFile: $config['log_file'] ?? "$dir/backup.log",
-            slackWebhook: $config['slack_webhook'] ?? '',
+            mysqldump: $backup['mysqldump'] ?? 'mysqldump',
+            mysqldumpOptions: $backup['mysqldump_options'] ?? [],
+            databases: $databases,
+            uploaders: $uploaders,
+            logFile: $log['file'] ?? "$dir/backup.log",
+            slackWebhook: $log['slack_webhook'] ?? '',
         );
     }
 

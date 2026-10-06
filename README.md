@@ -6,33 +6,50 @@ Requirements on the server: PHP 8.2+ (CLI, `zlib`, `simplexml`, `curl`), `mysqld
 
 ## Config
 
-`config.php` (gitignored, copy from `config.example.php`):
+`config.php` (gitignored, copy from `config.example.php`) has three sections:
 
 ```php
-'connections' => [
-    'main' => [
-        'host' => '127.0.0.1',
-        'port' => 3306,
-        'user' => 'backup',
-        'password' => 'secret',
-        'databases' => [
-            'project_a' => ['exclude' => ['sessions', 'cache']],  // all tables except these
-            'project_b' => ['include' => ['users', 'orders']],    // only these tables
-            'project_c' => [],                                    // all tables
+return [
+    'backup' => [                                   // what and how to dump
+        'dir' => __DIR__ . '/backups',
+        'keep_days' => 14,
+        'mysqldump' => 'mysqldump',
+        'mysqldump_options' => ['--single-transaction', ...],
+        'connections' => [
+            'main' => [
+                'host' => '127.0.0.1',
+                'port' => 3306,
+                'user' => 'backup',
+                'password' => 'secret',
+                'databases' => [
+                    'project_a' => ['exclude' => ['sessions', 'cache']],  // all tables except these
+                    'project_b' => ['include' => ['users', 'orders']],    // only these tables
+                    'project_c' => [],                                    // all tables
+                ],
+            ],
         ],
     ],
-],
+    'uploaders' => [...],                            // where dumps go, see Uploaders
+    'log' => [                                      // log file and Slack
+        'file' => __DIR__ . '/backup.log',
+        'slack_webhook' => $_ENV['SLACK_WEBHOOK_URL'] ?? '',
+    ],
+];
 ```
 
-- One entry per server under `connections`; the key (`main`) is just a label used in the backup path.
-- `databases` also accepts a plain list: `['analytics', 'crm']`.
-- `options` – flags passed to `mysqldump`.
-- `backup_dir` – where dumps are written, default `backups/` next to `config.php`. Keep it outside any web root.
+`backup`:
+
+- `dir` – where dumps are written, default `backups/` next to `config.php`. Keep it outside any web root.
 - `keep_days` – local dumps older than this are deleted after each run. `0` deletes the new dump as soon as every uploader succeeded (if one fails, it stays until the next good run). Leave it out to keep local dumps forever.
-- `log_file` – every step is logged here (default `backup.log` next to `config.php`), and also printed when you run it by hand.
+- `mysqldump_options` – flags passed to `mysqldump`.
+- `connections` – one entry per server; the key (`main`) is just a label used in the backup path. `databases` also accepts a plain list: `['analytics', 'crm']`.
+
+`log`:
+
+- `file` – every step is logged here (default `backup.log` next to `config.php`), and also printed when you run it by hand.
 - `slack_webhook` – optional, see [Slack](#slack).
 
-Output: `<backup_dir>/<connection>/<database>/<database>_YYYYmmdd_HHMMSS.sql.gz`
+Output: `<backup.dir>/<connection>/<database>/<database>_YYYYmmdd_HHMMSS.sql.gz`
 
 ### MySQL user
 
@@ -49,7 +66,7 @@ Each dump is uploaded by every entry in `uploaders` (leave it empty for local on
 |---|---|---|
 | `s3` | `<bucket>/<prefix>/<connection>/<database>/` (multipart above 16 MB) | `endpoint`, `region`, `bucket`, `key`, `secret`, `prefix`, `keep_days` |
 
-To keep nothing on the server, set the top-level `keep_days` to `0`.
+To keep nothing on the server, set `backup.keep_days` to `0`.
 
 R2 is S3-compatible, so it uses `'type' => S3Uploader::TYPE` (`'s3'`):
 
@@ -67,7 +84,7 @@ S3_SECRET_ACCESS_KEY=...
 
 ## Slack
 
-Each run posts a summary to Slack: green `Backup finished: 3 ok, 0 failed`, or red when something failed. Each error (failed dump, failed upload, config error) is also posted right away. The detailed steps stay in `log_file`. One message per day means the backup ran; no message means it did not.
+Each run posts a summary to Slack: green `Backup finished: 3 ok, 0 failed`, or red when something failed. Each error (failed dump, failed upload, config error) is also posted right away. The detailed steps stay in `log.file`. One message per day means the backup ran; no message means it did not.
 
 1. <https://api.slack.com/apps> → **Create New App** → *From scratch*, pick your workspace.
 2. **Incoming Webhooks** → turn on → **Add New Webhook to Workspace** → pick a channel.
@@ -129,7 +146,7 @@ The script writes `backup.log` itself; the redirect only catches PHP crashes tha
 
 ## Restore
 
-Take the dump from `backup_dir`, or download it from the R2/S3 dashboard, then:
+Take the dump from `backup.dir`, or download it from the R2/S3 dashboard, then:
 
 ```sh
 gunzip < project_a_20261005_023000.sql.gz | mysql -u root -p project_a
