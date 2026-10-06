@@ -1,7 +1,5 @@
 <?php
 
-use DbBackup\S3Uploader;
-
 return [
     'backup' => [
         'dir' => __DIR__ . '/backups',
@@ -43,7 +41,7 @@ return [
 
     'uploaders' => [
         'r2' => [
-            'type' => S3Uploader::TYPE,
+            'type' => 's3',
             'endpoint' => 'https://ACCOUNT_ID.r2.cloudflarestorage.com',
             'region' => 'auto',
             'bucket' => 'my-bucket',

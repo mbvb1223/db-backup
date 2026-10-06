@@ -24,7 +24,7 @@ readonly class S3Uploader implements Uploader
     {
         foreach (['bucket', 'key', 'secret'] as $key) {
             if (empty($settings[$key])) {
-                throw new RuntimeException("Uploader '$name': '$key' is not set (check .env)");
+                throw new RuntimeException("Uploader '$name': '$key' is not set in config.php");
             }
         }
 
