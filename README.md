@@ -58,7 +58,7 @@ S3_SECRET_ACCESS_KEY=...
 ## Run
 
 ```sh
-php backup.php   # backs up every database in config.php
+php index.php   # backs up every database in config.php
 ```
 
 Exit code is non-zero if any database failed. A per-database lock skips a database whose previous backup is still running.
@@ -87,7 +87,7 @@ cp /var/www/db-backup/current/config.example.php /var/www/db-backup/shared/confi
 chmod 600 /var/www/db-backup/shared/config.php /var/www/db-backup/shared/.env
 nano /var/www/db-backup/shared/config.php
 nano /var/www/db-backup/shared/.env         # only if uploading
-php /var/www/db-backup/current/backup.php   # test run
+php /var/www/db-backup/current/index.php    # test run
 ```
 
 Then add the cron (below). Cron points at `current/`, so later deploys need no changes on the server.
@@ -98,7 +98,7 @@ On the server, `crontab -e` (check the PHP path with `which php`):
 
 ```
 # every day at 02:30
-30 2 * * * /usr/bin/php /var/www/db-backup/current/backup.php >> /var/www/db-backup/shared/backup.log 2>&1
+30 2 * * * /usr/bin/php /var/www/db-backup/current/index.php >> /var/www/db-backup/shared/backup.log 2>&1
 ```
 
 ## Restore
