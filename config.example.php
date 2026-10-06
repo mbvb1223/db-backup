@@ -26,7 +26,7 @@ return [
                 'user' => 'backup',
                 'password' => 'secret',
                 'databases' => [
-                    'project_a' => ['exclude' => ['sessions', 'cache', 'jobs']],
+                    'project_a' => ['exclude_data' => ['sessions', 'cache'], 'exclude' => ['jobs']],
                     'project_b' => ['include' => ['users', 'orders', 'products']],
                     'project_c' => [],
                 ],

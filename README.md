@@ -22,7 +22,8 @@ return [
                 'user' => 'backup',
                 'password' => 'secret',
                 'databases' => [
-                    'project_a' => ['exclude' => ['sessions', 'cache']],  // all tables except these
+                    'project_a' => ['exclude' => ['logs']],                  // all tables except these
+                    'project_d' => ['exclude_data' => ['sessions', 'cache']],  // all tables, but only the structure of these
                     'project_b' => ['include' => ['users', 'orders']],    // only these tables
                     'project_c' => [],                                    // all tables
                 ],
@@ -43,6 +44,7 @@ return [
 - `keep_days` – local dumps older than this are deleted after each run. `0` deletes the new dump as soon as every uploader succeeded (if one fails, it stays until the next good run). Leave it out to keep local dumps forever.
 - `mysqldump_options` – flags passed to `mysqldump`.
 - `connections` – one entry per server; the key (`main`) is just a label used in the backup path. `databases` also accepts a plain list: `['analytics', 'crm']`.
+- Per database: `include` (only these tables), `exclude` (skip these tables), `exclude_data` (keep these tables' structure, skip their rows – e.g. sessions, cache). `exclude` and `exclude_data` can be combined; `include` cannot be combined with either.
 
 `log`:
 
