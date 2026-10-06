@@ -4,6 +4,17 @@ Dumps MySQL/MariaDB databases with `mysqldump` into gzipped files, uploads them 
 
 Requirements on the server: PHP 8.2+ (CLI, `zlib`, `simplexml`, `curl`), `mysqldump`. Uploads use the [AWS SDK for PHP](https://github.com/aws/aws-sdk-php), installed by Composer (trimmed to S3 only).
 
+## Install
+
+```sh
+git clone https://github.com/mbvb1223/db-backup.git && cd db-backup
+composer install --no-dev
+cp config.example.php config.php && chmod 600 config.php   # then edit it
+php index.php
+```
+
+Or deploy it with Deployer (below).
+
 ## Config
 
 `config.php` (gitignored, copy from `config.example.php`) has three sections:
