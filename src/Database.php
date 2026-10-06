@@ -14,9 +14,10 @@ readonly class Database
         public array $server,
         public array $include = [],
         public array $exclude = [],
+        public array $excludeData = [],
     ) {
-        if ($include && $exclude) {
-            throw new RuntimeException("$this->connection/$this->name: use either include or exclude, not both");
+        if ($include && ($exclude || $excludeData)) {
+            throw new RuntimeException("$this->connection/$this->name: use either include or exclude/exclude_data, not both");
         }
     }
 

@@ -61,7 +61,14 @@ readonly class Config
                 if (is_int($name)) {
                     [$name, $tables] = [$tables, []];
                 }
-                $databases[] = new Database((string) $connection, (string) $name, $server, $tables['include'] ?? [], $tables['exclude'] ?? []);
+                $databases[] = new Database(
+                    connection: (string) $connection,
+                    name: (string) $name,
+                    server: $server,
+                    include: $tables['include'] ?? [],
+                    exclude: $tables['exclude'] ?? [],
+                    excludeData: $tables['exclude_data'] ?? [],
+                );
             }
         }
 

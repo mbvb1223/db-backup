@@ -21,13 +21,16 @@ readonly class MysqlDumper
 
         $credentialsFile = $this->writeCredentialsFile($db->server);
         try {
-            $command = [$this->config->mysqldump, "--defaults-extra-file=$credentialsFile", ...$this->config->mysqldumpOptions];
-            foreach ($db->exclude as $table) {
-                $command[] = "--ignore-table=$db->name.$table";
-            }
-            $command = [...$command, $db->name, ...$db->include];
+            $mysqldump = [$this->config->mysqldump, "--defaults-extra-file=$credentialsFile", ...$this->config->mysqldumpOptions];
 
-            $this->runGzipped($command, $file);
+            $commands = [];
+            if ($db->excludeData) {
+                $commands[] = [...$mysqldump, '--no-data', '--skip-routines', '--skip-events', $db->name, ...$db->excludeData];
+            }
+            $ignoredTables = array_map(fn (string $table) => "--ignore-table=$db->name.$table", [...$db->exclude, ...$db->excludeData]);
+            $commands[] = [...$mysqldump, ...$ignoredTables, $db->name, ...$db->include];
+
+            $this->runGzipped($commands, $file);
         } finally {
             unlink($credentialsFile);
         }
@@ -51,7 +54,7 @@ readonly class MysqlDumper
         return $path;
     }
 
-    private function runGzipped(array $command, string $file): void
+    private function runGzipped(array $commands, string $file): void
     {
         $part = "$file.part";
         $gzip = gzopen($part, 'wb6');
@@ -59,28 +62,41 @@ readonly class MysqlDumper
             throw new RuntimeException("cannot write $part");
         }
 
+        try {
+            foreach ($commands as $command) {
+                $this->run($command, $gzip);
+            }
+        } catch (RuntimeException $e) {
+            gzclose($gzip);
+            unlink($part);
+            throw $e;
+        }
+
+        if (!gzclose($gzip)) {
+            unlink($part);
+            throw new RuntimeException("cannot write $part (disk full?)");
+        }
+        rename($part, $file);
+    }
+
+    private function run(array $command, $gzip): void
+    {
         $stderr = tmpfile();
         $process = proc_open($command, [1 => ['pipe', 'w'], 2 => $stderr], $pipes);
         if ($process === false) {
-            gzclose($gzip);
-            unlink($part);
             throw new RuntimeException("cannot start {$this->config->mysqldump}");
         }
 
         $copied = stream_copy_to_stream($pipes[1], $gzip);
         fclose($pipes[1]);
-        $written = gzclose($gzip) && $copied !== false;
         $exitCode = proc_close($process);
 
-        if (!$written) {
-            unlink($part);
-            throw new RuntimeException("cannot write $part (disk full?)");
+        if ($copied === false) {
+            throw new RuntimeException('cannot write the dump (disk full?)');
         }
         if ($exitCode !== 0) {
-            unlink($part);
             rewind($stderr);
             throw new RuntimeException("mysqldump exit $exitCode: " . trim(stream_get_contents($stderr)));
         }
-        rename($part, $file);
     }
 }
